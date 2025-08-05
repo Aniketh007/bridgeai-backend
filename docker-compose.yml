@@ -1,0 +1,53 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ari-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build: .
+    container_name: ari-backend
+    ports:
+      - "8001:8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8001"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery:
+    build: .
+    container_name: ari-celery
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: ["celery", "-A", "celery_app:celery_app", "worker", "--pool=threads", "--concurrency=4", "--loglevel=info"]
+
+volumes:
+  redis_data:
