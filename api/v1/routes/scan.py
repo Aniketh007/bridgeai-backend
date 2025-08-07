@@ -17,7 +17,7 @@ from schemas.scan import ScanRequest, ScanResponse
 
 router = APIRouter()
 final_result = ''
-api_key = "AIzaSyBiQl3KNJpE-_iaH4-QVXPL-Y2YYcHLSNg"
+api_key = "AIzaSyCeY-OKoMjs-GfgatJeLYGNXoqeQRxiqNU"
 
 @router.post("/scan")
 def run_scan(scan_request: ScanRequest):
