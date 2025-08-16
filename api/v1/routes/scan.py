@@ -45,7 +45,7 @@ async def get_scan(
     Get scan details by ID.
     """
     scan = await scan_service.get_scan_by_id(scan_id)
-    if not scan and scan.userId != current_user.id:
+    if not scan or scan.userId != current_user.id:
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
 
