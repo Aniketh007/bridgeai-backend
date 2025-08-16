@@ -1,15 +1,15 @@
 # Core FastAPI and async dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-multipart==0.0.6
+fastapi==0.110.0
+uvicorn[standard]==0.27.0
+pydantic==2.6.0
+
+numpy
 
 # HTTP requests and web scraping
-httpx==0.25.2
+httpx==0.26.0
 requests==2.31.0
 beautifulsoup4==4.12.2
-lxml==4.9.3
-aiofiles==23.2.1
+lxml>=5.0.0
 
 # Database and caching
 redis==5.0.1
@@ -19,30 +19,18 @@ google-generativeai==0.3.2
 
 # Email services
 python-dotenv==1.0.0
-jinja2==3.1.2
 
 # Background tasks
 celery==5.3.4
 
-# PDF generation
-reportlab==4.0.7
-Pillow==10.1.0
-
-
-
 # Environment management
 dnspython
-python-whois
-pyasn
-pyasn1
-pyasn
-feedparser
-
-
-extruct
-advertools
-networkx
-spacy
-textstat
 
 selenium
+razorpay
+
+email-validator
+bcrypt
+pyjwt
+
+prisma

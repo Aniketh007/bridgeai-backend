@@ -23,6 +23,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - PYTHONPATH=/app
+      - CONVEX_URL=https://cautious-echidna-302.convex.cloud
+      - CONVEX_API_KEY=dev:cautious-echidna-302|eyJ2MiI6ImM0NzJhMWIwODM2MjRmZjZiMjU5N2M4ZGJkYmNjNTc1In0=
     volumes:
       - .:/app
       - /app/__pycache__

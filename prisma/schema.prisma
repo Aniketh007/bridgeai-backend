@@ -1,0 +1,55 @@
+generator client {
+    provider = "prisma-client-py"
+    enable_experimental_decimal = true
+}
+
+datasource db {
+    provider = "postgresql"
+    url = env("DATABASE_URL")
+}
+
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    passwordHash    String
+    name      String?
+    phone     String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    scans     Scan[]
+    payments  Payment[]
+
+    @@map("users")
+}
+
+model Scan {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  result    Json?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("scans")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Decimal  @db.Decimal(10, 2)
+  currency  String        @default("USD")
+  status    String   @default("pending")
+  stripeId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payments")
+}

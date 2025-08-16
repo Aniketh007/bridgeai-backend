@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 import uuid
 import json
@@ -10,60 +11,82 @@ from services.geo_readiness.geo_auditor import GeoReadinessAnalyzer
 from services.modularity_api.modularity_auditor import ModularityApiAnalyzer
 from services.semantic.semantic_auditor import SemanticAuditor
 from utils.featcher import fetch_html_selenium
+from core.scan_service import scan_service
 import google.generativeai as genai
 
 @celery_app.task(bind=True)
-def run_audit(self, url: str, api_key: str) -> Dict[str, Any]:
+def run_audit(self, scan_id: str, url: str, api_key: str) -> Dict[str, Any]:
     """
     Run a comprehensive audit based on the provided URL and API key.
     """
-    if not url:
-        raise ValueError("URL is required")
+    if not url or not scan_id:
+        raise ValueError("URL and Scan ID are required")
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+        reports = {}
+        # Pillars in order, mapping to auditor classes
+        pillars = [
+            ("Agent Experience",   AxoAuditor),
+            ("GEO Readiness & Governance", GeoReadinessAnalyzer),
+            ("API Readiness",      ModularityApiAnalyzer),
+            ("Performance & Reliability", AutomationAuditor),
+            ("Structural & Semantic", SemanticAuditor),
+        ]
+        start = datetime.now()
 
-    reports = {}
-    # Pillars in order, mapping to auditor classes
-    pillars = [
-        ("Agent Experience",   AxoAuditor),
-        ("GEO Readiness & Governance", GeoReadinessAnalyzer),
-        ("API Readiness",      ModularityApiAnalyzer),
-        ("Performance & Reliability", AutomationAuditor),
-        ("Structural & Semantic", SemanticAuditor),
-    ]
-    start = datetime.now()
+        for idx, (name, AuditorCls) in enumerate(pillars, start=1):
+            # update progress
+            self.update_state(
+                state="PROGRESS",
+                meta={"current": idx, "total": len(pillars), "last_completed": name}
+            )
 
-    for idx, (name, AuditorCls) in enumerate(pillars, start=1):
-        # update progress
-        self.update_state(
-            state="PROGRESS",
-            meta={"current": idx, "total": len(pillars), "last_completed": name}
+            # run each auditor
+            if AuditorCls is AxoAuditor:
+                rpt = AuditorCls(base_url=url, model=model).run_all()
+            else:
+                rpt = AuditorCls(base_url=url).run_all()
+            reports[name] = rpt
+
+            asyncio.run(scan_service.update_scan_from_task(
+                scan_id=scan_id,
+                result={"current": idx, "total": len(pillars), "last_completed": name}, # Store the partial results
+                status="PROGRESS"
+            ))
+            
+
+        # combine via your aggregate_scans logic
+        final = aggregate_scans(
+            model,
+            reports["Agent Experience"],
+            reports["GEO Readiness & Governance"],
+            reports["API Readiness"],
+            reports["Performance & Reliability"],
+            reports["Structural & Semantic"],
         )
 
-        # run each auditor
-        if AuditorCls is AxoAuditor:
-            rpt = AuditorCls(base_url=url, model=model).run_all()
-        else:
-            rpt = AuditorCls(base_url=url).run_all()
-        reports[name] = rpt
+        end = datetime.now()
+        final["duration_minutes"] = round((end - start).total_seconds() / 60, 2)
+        final["assessed_on"] = start.strftime("%Y-%m-%d")
 
-    end = datetime.now()
-    # combine via your aggregate_scans logic
-    final = aggregate_scans(
-        model,
-        reports["Agent Experience"],
-        reports["GEO Readiness & Governance"],
-        reports["API Readiness"],
-        reports["Performance & Reliability"],
-        reports["Structural & Semantic"],
-    )
+        asyncio.run(scan_service.update_scan_from_task(
+            scan_id=scan_id,
+            result=final,
+            status="completed"
+        ))
 
-    end = datetime.now()
-    final["duration_minutes"] = round((end - start).total_seconds() / 60, 2)
-    final["assessed_on"] = start.strftime("%Y-%m-%d")
-
-    return final
+        return {"status": "completed", "scan_id": scan_id}
+    
+    except Exception as e:
+        error_report = {"error": str(e)}
+        asyncio.run(scan_service.update_scan_from_task(
+            scan_id=scan_id, 
+            result=error_report, 
+            status="failed"
+        ))
+        raise e
 
 
 def aggregate_scans(model, axo_report: dict, geo_report: dict, modular_report: dict, automation_report: dict, semantic_report: dict) -> dict:

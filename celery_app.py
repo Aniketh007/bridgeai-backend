@@ -1,3 +1,4 @@
+# celery_app.py
 import os
 from celery import Celery
 
@@ -6,7 +7,7 @@ celery_app = Celery(
     'ari_backend',
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=[  # <-- add this
+    include=[
         'services.tasks',
     ],
 )
@@ -17,3 +18,8 @@ celery_app.conf.update(
     accept_content=["json"],
     result_expires=3600,
 )
+
+# Add these two lines (recommended)
+celery_app.conf.worker_redirect_stdouts = False
+# optional: if you do want redirecting but at a specific level
+# celery_app.conf.worker_redirect_stdouts_level = "INFO"
